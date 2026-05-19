@@ -1,0 +1,445 @@
+networks:
+  wan-edge:
+    driver: bridge
+  frontend-net:
+    driver: bridge
+  backend-net:
+    driver: bridge
+  management-net:
+    driver: bridge
+  database-net:
+    driver: bridge
+
+services:
+  # ============================================================================
+  # NETWORK BOUNDARY LAYER (wan-edge / ingress)
+  # ============================================================================
+  nginx:
+    image: nginx:alpine
+    container_name: factory-nginx
+    restart: always
+    ports:
+      - "${PORT_NGINX_HTTP}:80"
+      - "${PORT_NGINX_HTTPS}:443"
+    volumes:
+      - ./compose/network/nginx:/etc/nginx
+      - ./compose/network/nginx/mime.types:/etc/nginx/mime.types
+      - ./compose/network/nginx/certs/cert.pem:/etc/nginx/certs/cert.pem
+      - ./compose/network/nginx/certs/cert.pem:/etc/nginx/certs/key.pem
+      - ./data/nginx/logs:/var/log/nginx
+    networks:
+      - wan-edge
+      - frontend-net
+
+  tailscale:
+    image: tailscale/tailscale:latest
+    container_name: factory-tailscale
+    restart: always
+    environment:
+      - TS_AUTHKEY=${TAILSCALE_AUTHKEY}
+      - TS_ROUTES=172.20.0.0/16
+    volumes:
+      - ./data/tailscale:/var/lib/tailscale
+      - /dev/net/tun:/dev/net/tun
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    networks:
+      - wan-edge
+      - frontend-net
+      - management-net
+
+  cf-tunnel:
+    image: cloudflare/cloudflared:latest
+    container_name: factory-cf-tunnel
+    restart: always
+    command: tunnel --no-autoupdate run
+    environment:
+      - TUNNEL_TOKEN=${CF_TUNNEL_TOKEN}
+    networks:
+      - wan-edge
+      - frontend-net
+
+  # ============================================================================
+  # MANAGEMENT & ORCHESTRATION LAYER (frontend-net / management-net)
+  # ============================================================================
+  portainer:
+    image: portainer/portainer-ce:latest
+    container_name: factory-portainer
+    restart: always
+    ports:
+      - "${PORT_PORTAINER}:9443"
+    env_file:
+      - .env
+      - .secrets
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./data/portainer:/data
+    networks:
+      - frontend-net
+      - management-net
+
+  dockge:
+    image: louislam/dockge:1
+    container_name: factory-dockge
+    restart: always
+    ports:
+      - "${PORT_DOCKGE}:5001"
+    environment:
+      - DOCKGE_STACKS_DIR=/home/user/stacks
+      - DOCKGE_ENABLE_CONSOLE=true
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./data/dockge:/app/data
+    networks:
+      - frontend-net
+      - management-net
+
+  homepage:
+    image: ghcr.io/gethomepage/homepage:latest
+    container_name: factory-homepage
+    restart: always
+    ports:
+      - "${PORT_HOMEPAGE}:3000"
+    volumes:
+      - ./compose/management/dashboard/homepage:/app/config
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - frontend-net
+    environment:
+      - HOMEPAGE_ALLOWED_HOSTS=*
+
+  dashy:
+    image: lissy93/dashy:latest
+    container_name: factory-dashy
+    restart: always
+    ports:
+      - "${PORT_DASHY}:80"
+    volumes:
+      - ./compose/management/dashboard/dashy:/app/public
+    networks:
+      - frontend-net
+
+  uptime-kuma:
+    image: louislam/uptime-kuma:1
+    container_name: factory-uptime-kuma
+    restart: always
+    ports:
+      - "${PORT_UPTIME_KUMA}:3001"
+    volumes:
+      - ./data/uptime-kuma:/app/data
+    networks:
+      - frontend-net
+      - management-net
+
+  # ============================================================================
+  # ACCESS GATEWAYS (frontend-net / backend-net)
+  # ============================================================================
+  guacamole:
+    image: guacamole/guacamole:latest
+    container_name: factory-guacamole
+    restart: always
+    ports:
+      - "8082:8080"
+    volumes:
+      - ./data/guacamole:/etc/guacamole
+    networks:
+      - frontend-net
+
+  rustdesk-server:
+    image: rustdesk/rustdesk-server:latest
+    container_name: factory-rustdesk-server
+    restart: always
+    ports:
+      - "${PORT_RUSTDESK_SIGN}:21115"
+      - "${PORT_RUSTDESK_IR}:21116"
+      - "${PORT_RUSTDESK_IR}:21116/udp"
+    command: hbbs -r factory-rustdesk-relay -k _
+    environment:
+      - ENCRYPT_KEY=${RUSTDESK_KEY}
+    volumes:
+      - ./data/rustdesk/server:/root
+    networks:
+      - frontend-net
+
+  rustdesk-relay:
+    image: rustdesk/rustdesk-server:latest
+    container_name: factory-rustdesk-relay
+    restart: always
+    ports:
+      - "${PORT_RUSTDESK_RELAY}:21117"
+    command: hbbr -k _
+    environment:
+      - ENCRYPT_KEY=${RUSTDESK_KEY}
+    volumes:
+      - ./data/rustdesk/relay:/root
+    networks:
+      - frontend-net
+
+  # ============================================================================
+  # DATABASE CORE PERIMETER LAYER (database-net / management-net)
+  # ============================================================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: factory-postgres
+    restart: always
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+    networks:
+      - database-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: factory-redis
+    restart: always
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
+    volumes:
+      - ./data/redis:/data
+    networks:
+      - database-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: factory-qdrant
+    restart: always
+    environment:
+      QDRANT__SERVICE__API_KEY: ${QDRANT_API_KEY}
+    volumes:
+      - ./data/qdrant:/qdrant/storage
+    ports:
+      - "${PORT_QDRANT}:6333"
+    networks:
+      - database-net
+      - backend-net
+    healthcheck:
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/6333; echo -e 'GET /healthz HTTP/1.1\r\nHost: localhost\r\napi-key: ${QDRANT_API_KEY}\r\nConnection: close\r\n\r\n' >&3; grep -q '200 OK' <&3"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+  chromadb:
+    image: chromadb/chroma:latest
+    container_name: factory-chromadb
+    restart: always
+    ports:
+      - "${PORT_CHROMADB}:8000"
+    environment:
+      - CHROMA_SERVER_AUTH_PROVIDER=chromadb.auth.token.TokenAuthServerProvider
+      - CHROMA_SERVER_AUTH_CREDENTIALS=${CHROMA_AUTH_TOKEN}
+    volumes:
+      - ./data/chromadb:/chroma/data
+    networks:
+      - database-net
+      - backend-net
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: factory-pgadmin
+    restart: always
+    ports:
+      - "${PORT_PGADMIN}:80"
+    env_file:
+      - .env
+      - .secrets
+    environment:
+      - CHECK_EMAIL_DELIVERABILITY=False 
+      - PGADMIN_CONFIG_ALLOW_SPECIAL_EMAIL_DOMAINS=["local"] 
+    volumes:
+      - ./data/pgadmin:/var/lib/pgadmin
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - management-net
+      - database-net
+
+  dbgate:
+    image: dbgate/dbgate:latest
+    container_name: factory-dbgate
+    restart: always
+    ports:
+      - "${PORT_DBGATE}:3000"
+    volumes:
+      - ./data/dbgate:/root/.dbgate
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - management-net
+      - database-net
+
+  # ============================================================================
+  # INTELLIGENT INFERENCE LAYER (backend-net / frontend-net)
+  # ============================================================================
+  ollama:
+    image: ollama/ollama:latest
+    container_name: factory-ollama
+    restart: always
+    volumes:
+      - ./data/ollama:/root/.ollama
+    networks:
+      - backend-net
+
+  litellm:
+    image: ghcr.io/berriai/litellm:latest
+    container_name: factory-litellm
+    restart: always
+    ports:
+      - "${PORT_LITELLM}:4000"
+    env_file:
+      - .env
+      - .secrets
+    volumes:
+      - ./config/services/litellm/litellm.yml:/app/config.yaml
+      - ./data/litellm:/app/data
+    command: [ "--config", "/app/config.yaml" ]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - database-net
+      - backend-net
+
+  searxng:
+    image: searxng/searxng:latest
+    container_name: factory-searxng
+    restart: always
+    ports:
+      - "8081:8080"
+    volumes:
+      - ./config/services/searxng:/etc/searxng
+    networks:
+      - backend-net
+
+  browserless:
+    image: browserless/chrome:latest
+    container_name: factory-browserless
+    restart: always
+    environment:
+      - MAX_CONCURRENT_SESSIONS=10
+      - TOKEN=${BROWSERLESS_TOKEN}
+    networks:
+      - backend-net
+
+  # ============================================================================
+  # USER COGNITIVE INTERFACES (frontend-net / backend-net)
+  # ============================================================================
+  openwebui:
+    image: ghcr.io/open-webui/open-webui:latest
+    container_name: factory-openwebui
+    restart: always
+    ports:
+      - "${PORT_OPENWEBUI}:8080"
+    environment:
+      - OPENAI_API_BASE_URL=http://factory-litellm:4000/v1
+      - OPENAI_API_KEY=${LITELLM_MASTER_KEY}
+      - REDIS_CONNECTION_STRING=redis://:${REDIS_PASSWORD}@factory-redis:6379/0
+    volumes:
+      - ./data/openwebui:/app/backend/data
+    depends_on:
+      redis:
+        condition: service_healthy
+      litellm:
+        condition: service_started
+    networks:
+      - frontend-net
+      - database-net
+      - backend-net
+
+  anythingllm:
+    image: mintplexlabs/anythingllm:latest
+    container_name: factory-anythingllm
+    restart: always
+    ports:
+      - "${PORT_ANYTHINGLLM}:3001"
+    environment:
+      - STORAGE_DIR=/app/storage
+    volumes:
+      - ./data/anythingllm:/app/storage
+    networks:
+      - frontend-net
+      - backend-net
+
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:latest
+    container_name: factory-n8n
+    restart: always
+    ports:
+      - "${PORT_N8N}:5678"
+    environment:
+      - DB_TYPE=postgresdb
+      - DB_POSTGRESDB_HOST=factory-postgres
+      - DB_POSTGRESDB_PORT=5432
+      - DB_POSTGRESDB_USER=${POSTGRES_USER}
+      - DB_POSTGRESDB_PASSWORD=${POSTGRES_PASSWORD}
+      - DB_POSTGRESDB_DATABASE=${POSTGRES_DB}
+      - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY}
+    volumes:
+      - ./data/n8n:/home/node/.n8n
+      - ./config/services/n8n:/opt/n8n/configs
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - frontend-net
+      - database-net
+      - backend-net
+
+  # ============================================================================
+  # METRICS & OBSERVABILITY PLANES (management-net BASED)
+  # ============================================================================
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: factory-prometheus
+    restart: always
+    volumes:
+      - ./compose/management/prometheus:/etc/prometheus
+      - ./data/prometheus:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+    networks:
+      - management-net
+      - backend-net
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: factory-grafana
+    restart: always
+    ports:
+      - "${PORT_GRAFANA}:3000"
+    volumes:
+      - ./data/grafana:/var/lib/grafana
+    networks:
+      - management-net
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:latest
+    container_name: factory-cadvisor
+    restart: always
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    devices:
+      - /dev/kmsg
+    networks:
+      - backend-net
+      - management-net

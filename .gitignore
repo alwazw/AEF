@@ -1,0 +1,13 @@
+# Persistent engine clusters and logs
+data/
+
+# Cryptographic variable states
+.env
+.secrets
+.env.*
+.secrets.*
+
+# Operating system transient caches
+.DS_Store
+Thumbs.db
+*.log
