@@ -1,0 +1,199 @@
+version: '3.8'
+
+networks:
+  frontend-net:
+    driver: bridge
+  backend-net:
+    driver: bridge
+  database-net:
+    driver: bridge
+
+services:
+  # --- CORE UTILITY DATA LAYER ---
+  postgres:
+    image: postgres:16-alpine
+    container_name: ai-postgres
+    restart: always
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+    networks:
+      - database-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: ai-redis
+    restart: always
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
+    volumes:
+      - ./data/redis:/data
+    networks:
+      - database-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: ai-qdrant
+    restart: always
+    environment:
+      QDRANT__SERVICE__API_KEY: ${QDRANT_API_KEY}
+    volumes:
+      - ./data/qdrant:/qdrant/storage
+    ports:
+      - "${QDRANT_PORT:-6333}:6333"
+    networks:
+      - database-net
+      - backend-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:6333/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # --- WEB SEARCH FOR AGENTS ---
+  searxng:
+    image: searxng/searxng:latest
+    container_name: ai-searxng
+    restart: always
+    volumes:
+      - ./configs/searxng:/etc/searxng
+    networks:
+      - backend-net
+
+  # --- INFERENCE ENGINE LAYER ---
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ai-ollama
+    restart: always
+    volumes:
+      - ./data/ollama:/root/.ollama
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    networks:
+      - backend-net
+
+  litellm:
+    image: ghcr.io/berriai/litellm:main-latest
+    container_name: ai-litellm
+    restart: always
+    ports:
+      - "${LITELLM_PORT:-4000}:4000"
+    env_file:
+      - .env
+      - .secrets
+    volumes:
+      - ./configs/litellm/litellm.yml:/app/config.yaml
+      - ./data/litellm:/app/data
+    command: [ "--config", "/app/config.yaml" ]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - database-net
+      - backend-net
+
+  # --- FRONTEND INTERFACE ---
+  openwebui:
+    image: ghcr.io/open-webui/open-webui:main
+    container_name: ai-openwebui
+    restart: always
+    ports:
+      - "${OPENWEBUI_PORT:-3000}:8080"
+    environment:
+      - OPENAI_API_BASE_URL=http://ai-litellm:4000/v1
+      - OPENAI_API_KEY=${LITELLM_MASTER_KEY}
+      - REDIS_CONNECTION_STRING=redis://:${REDIS_PASSWORD}@ai-redis:6379/0
+    volumes:
+      - ./data/openwebui:/app/backend/data
+    depends_on:
+      redis:
+        condition: service_healthy
+      litellm:
+        condition: service_started
+    networks:
+      - frontend-net
+      - database-net
+      - backend-net
+
+  # --- WORKFLOW AUTOMATION ---
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:latest
+    container_name: ai-n8n
+    restart: always
+    ports:
+      - "${N8N_PORT:-5678}:5678"
+    environment:
+      - DB_TYPE=postgresdb
+      - DB_POSTGRESDB_HOST=ai-postgres
+      - DB_POSTGRESDB_PORT=5432
+      - DB_POSTGRESDB_USER=${POSTGRES_USER}
+      - DB_POSTGRESDB_PASSWORD=${POSTGRES_PASSWORD}
+      - DB_POSTGRESDB_DATABASE=${POSTGRES_DB}
+      - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY}
+    volumes:
+      - ./data/n8n:/home/node/.n8n
+      - ./configs/n8n:/opt/n8n/configs
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - frontend-net
+      - database-net
+      - backend-net
+
+  # --- WEB BROWSER AUTOMATION ---
+  browserless:
+    image: browserless/chrome:latest
+    container_name: ai-browserless
+    restart: always
+    environment:
+      - MAX_CONCURRENT_SESSIONS=5
+      - TOKEN=${BROWSERLESS_TOKEN}
+    networks:
+      - backend-net
+
+  # --- AUTONOMOUS WORKERS ---
+  agent-zero:
+    image: agent0ai/agent-zero:latest
+    container_name: ai-agent-zero
+    restart: always
+    volumes:
+      - ./data/agent-zero:/app/workspace
+      - ./configs/agent-zero:/app/config
+    environment:
+      - OPENAI_API_BASE=http://ai-litellm:4000/v1
+      - OPENAI_API_KEY=${LITELLM_MASTER_KEY}
+      - SEARXNG_URL=http://ai-searxng:8080
+    networks:
+      - backend-net
+
+  openclaw:
+    image: openclaw/openclaw:latest
+    container_name: ai-openclaw
+    restart: always
+    env_file:
+      - .env
+      - .secrets
+    volumes:
+      - ./data/openclaw:/app/data
+    environment:
+      - OPENAI_BASE_URL=http://ai-litellm:4000/v1
+    networks:
+      - backend-net
