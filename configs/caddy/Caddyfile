@@ -1,0 +1,64 @@
+# ====================================================================
+# Caddy Reverse Proxy — AI Production Fabric Stack
+# ====================================================================
+# Automatic TLS via Let's Encrypt (requires public DNS + port 80/443
+# reachable). For LAN-only use, uncomment the "tls internal" lines.
+# ====================================================================
+
+{$DOMAIN} {
+    # tls internal                    # ← Uncomment for self-signed LAN certs
+
+    reverse_proxy /v1/* ai-litellm:4000 {
+        header_up Host {upstream_hostport}
+    }
+
+    reverse_proxy ai-openwebui:8080 {
+        header_up Host {upstream_hostport}
+    }
+}
+
+n8n.{$DOMAIN} {
+    # tls internal                    # ← Uncomment for self-signed LAN certs
+
+    reverse_proxy ai-n8n:5678 {
+        header_up Host {upstream_hostport}
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto {scheme}
+    }
+}
+
+litellm.{$DOMAIN} {
+    # tls internal                    # ← Uncomment for self-signed LAN certs
+
+    reverse_proxy ai-litellm:4000 {
+        header_up Host {upstream_hostport}
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto {scheme}
+    }
+}
+
+qdrant.{$DOMAIN} {
+    # tls internal                    # ← Uncomment for self-signed LAN certs
+
+    reverse_proxy ai-qdrant:6333 {
+        header_up Host {upstream_hostport}
+    }
+}
+
+ollama.{$DOMAIN} {
+    # tls internal                    # ← Uncomment for self-signed LAN certs
+
+    reverse_proxy ai-ollama:11434 {
+        header_up Host {upstream_hostport}
+    }
+}
+
+searxng.{$DOMAIN} {
+    # tls internal                    # ← Uncomment for self-signed LAN certs
+
+    reverse_proxy ai-searxng:8080 {
+        header_up Host {upstream_hostport}
+    }
+}

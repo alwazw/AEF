@@ -1,0 +1,249 @@
+# ====================================================================
+# SearXNG -- Lean Agent-Focused Configuration
+# ====================================================================
+# Uses default settings as base, overrides only what agents need.
+# ====================================================================
+
+use_default_settings: true
+
+general:
+  instance_name: "AI-Stack SearXNG"
+  enable_metrics: false
+  debug: false
+
+search:
+  safe_search: 0
+  autocomplete: "google"
+  autocomplete_min: 3
+  formats:
+    - html
+    - json
+
+server:
+  port: 8080
+  bind_address: "0.0.0.0"
+  secret_key: "searxng-agent-secret-key-replace-in-production"
+  limiter: false
+  image_proxy: false
+  method: "GET"
+
+outgoing:
+  request_timeout: 5.0
+  max_request_timeout: 15.0
+  pool_connections: 50
+  pool_maxsize: 10
+  enable_http2: true
+
+ui:
+  default_theme: simple
+  default_locale: "en"
+  search_on_category_select: true
+
+# Disable engines that are heavy, unreliable, or unnecessary for agents
+engines:
+  - name: google
+    disabled: true
+  - name: bing
+    disabled: true
+  - name: bing images
+    disabled: true
+  - name: bing news
+    disabled: true
+  - name: bing videos
+    disabled: true
+  - name: yahoo
+    disabled: true
+  - name: brave
+    disabled: true
+  - name: startpage
+    disabled: true
+  - name: qwant
+    disabled: true
+  - name: yandex
+    disabled: true
+  - name: baidu
+    disabled: true
+  - name: duckduckgo videos
+    disabled: true
+  - name: duckduckgo maps
+    disabled: true
+  - name: apple maps
+    disabled: true
+  - name: youtube
+    disabled: true
+  - name: dailymotion
+    disabled: true
+  - name: vimeo
+    disabled: true
+  - name: instagram
+    disabled: true
+  - name: pinterest
+    disabled: true
+  - name: reddit
+    disabled: true
+  - name: twitter
+    disabled: true
+  - name: spotify
+    disabled: true
+  - name: soundcloud
+    disabled: true
+  - name: deezer
+    disabled: true
+  - name: itunes
+    disabled: true
+  - name: google videos
+    disabled: true
+  - name: google news
+    disabled: true
+  - name: google images
+    disabled: true
+  - name: google shopping
+    disabled: true
+  - name: flickr
+    disabled: true
+  - name: deviantart
+    disabled: true
+  - name: unsplash
+    disabled: true
+  - name: pixabay
+    disabled: true
+  - name: peertube
+    disabled: true
+  - name: invidious
+    disabled: true
+  - name: ebay
+    disabled: true
+  - name: amazon
+    disabled: true
+  - name: piratebay
+    disabled: true
+  - name: 1337x
+    disabled: true
+  - name: solidtorrents
+    disabled: true
+  - name: libgen
+    disabled: true
+  - name: annas archive
+    disabled: true
+  - name: arxiv
+    disabled: true
+  - name: pubmed
+    disabled: true
+  - name: crossref
+    disabled: true
+  - name: semantic scholar
+    disabled: true
+  - name: base
+    disabled: true
+  - name: fdroid
+    disabled: true
+  - name: playstore
+    disabled: true
+  - name: ahmia
+    disabled: true
+  - name: onionland
+    disabled: true
+  - name: wayback
+    disabled: true
+  - name: internetarchive
+    disabled: true
+  - name: mwmbl
+    disabled: true
+  - name: sepiasearch
+    disabled: true
+  - name: lobste.rs
+    disabled: true
+  - name: hackernews
+    disabled: true
+  - name: searchcode code
+    disabled: true
+  - name: sourcehut
+    disabled: true
+  - name: gitlab
+    disabled: true
+  - name: bitbucket
+    disabled: true
+  - name: crates.io
+    disabled: true
+  - name: rubygems
+    disabled: true
+  - name: gentoo
+    disabled: true
+  - name: voidlinux
+    disabled: true
+  - name: wikivoyage
+    disabled: true
+  - name: wikibooks
+    disabled: true
+  - name: wikinews
+    disabled: true
+  - name: wikiquote
+    disabled: true
+  - name: wikisource
+    disabled: true
+  - name: wikiversity
+    disabled: true
+  - name: wiktionary
+    disabled: true
+  - name: wikispecies
+    disabled: true
+  - name: wikimedia commons
+    disabled: true
+  - name: lemmy communities
+    disabled: true
+  - name: lemmy users
+    disabled: true
+  - name: lemmy posts
+    disabled: true
+  - name: lemmy comments
+    disabled: true
+  - name: mastodon users
+    disabled: true
+  - name: excite
+    disabled: true
+  - name: mojeek
+    disabled: true
+  - name: etools
+    disabled: true
+  - name: dogpile
+    disabled: true
+  - name: ask
+    disabled: true
+  - name: wiby
+    disabled: true
+  - name: whowas
+    disabled: true
+  - name: 9gag
+    disabled: true
+  - name: bilibili
+    disabled: true
+  - name: kbin communities
+    disabled: true
+  - name: kbin users
+    disabled: true
+  - name: kbin posts
+    disabled: true
+  - name: kbin comments
+    disabled: true
+  - name: bandcamp
+    disabled: true
+  - name: imdb
+    disabled: true
+  - name: rottentomatoes
+    disabled: true
+  - name: mixcloud
+    disabled: true
+  - name: radio browser
+    disabled: true
+  - name: openverse
+    disabled: true
+  - name: svgrepo
+    disabled: true
+  - name: codeberg
+    disabled: true
+  - name: pkg.go.dev
+    disabled: true
+  - name: metacpan
+    disabled: true
+  - name: hoogle
+    disabled: true
