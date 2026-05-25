@@ -1,7 +1,5 @@
 data/
 .env
 .secrets
-.env.*
-.secrets.*
 .DS_Store
 Thumbs.db
