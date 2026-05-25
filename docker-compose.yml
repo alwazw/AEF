@@ -17,6 +17,8 @@ services:
     ports:
       - "80:80"
       - "443:443"
+    environment:
+      - DOMAIN=${DOMAIN}
     volumes:
       - ./configs/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
       - ./data/caddy/data:/data
@@ -25,10 +27,11 @@ services:
       - frontend-net
       - backend-net
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:2019/metrics"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
+      disable: true
+#      test: ["CMD", "wget", "--spider", "-q", "http://localhost:2019/metrics"]
+#      interval: 10s
+#      timeout: 5s
+#      retries: 3
 
   # ==================================================================
   # CORE UTILITY DATA LAYER (database-net only)
@@ -93,8 +96,15 @@ services:
     image: searxng/searxng:latest
     container_name: ai-searxng
     restart: always
+    ports:
+      - "${SEARXNG_PORT}:8080"
     volumes:
       - ./configs/searxng:/etc/searxng
+    environment:
+    # LOOK FOR HARDCODED ALTERNATIVE V2. USE LOCALHOST?
+    # IS THIS HOST OT CONTAINER PATH?
+      - SEARXNG_BASE_URL=http://192.168.2.22:8080/
+      - SEARXNG_SETTINGS_PATH=/etc/searxng/settings.yml
     networks:
       - backend-net
     healthcheck:
@@ -110,6 +120,11 @@ services:
     image: ollama/ollama:latest
     container_name: ai-ollama
     restart: always
+    ports:
+      - "${OLLAMA_PORT}:11434"
+    environment:
+    #REMOVE IF CAUSES CONFLICTS
+      - OLLAMA_HOST=0.0.0.0
     volumes:
       - ./data/ollama:/root/.ollama
     deploy:
@@ -119,6 +134,8 @@ services:
             - driver: nvidia
               count: all
               capabilities: [gpu]
+        limits:
+         memory: 90gb
     networks:
       - backend-net
     healthcheck:
@@ -262,16 +279,36 @@ services:
   openclaw:
     image: alpine/openclaw:latest
     container_name: ai-openclaw
-    restart: "no"
+    restart: always
+    ports:
+      - "${OPENCLAW_PORT}:18789"
     env_file:
       - ./.env
       - ./.secrets
     volumes:
-      - ./data/openclaw:/app/data
+      - ./data/openclaw:/home/node/.openclaw
+      - ./configs/openclaw/openclaw.json:/home/node/.openclaw/openclaw.json
+
+    ## Override CMD: must include base entrypoint args (node openclaw.mjs gateway)
+    ## Docker command replaces CMD, and entrypoint (tini -s --) forwards these args.
+    ## --bind=lan binds to all interfaces (needed for Docker port mapping)
+    command: ["node", "openclaw.mjs", "gateway", "--bind=lan", "--port=18789"]
     environment:
-      - OPENAI_BASE_URL=http://ai-litellm:4000/v1
+      # Route OpenClaw to LiteLLM gateway for all model inference (Morpheus aliases)
+      - OPENAI_API_BASE=http://ai-litellm:4000/v1
+      - OPENAI_API_KEY=${LITELLM_MASTER_KEY}
+      - DEFAULT_MODEL=local-processor
+      # SearXNG inside the backend-net bridge
+      - SEARXNG_URL=http://ai-searxng:8080
+      # Gateway auth — required when --bind=lan in container
+      - OPENCLAW_GATEWAY_TOKEN=${LITELLM_MASTER_KEY}
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - TELEGRAM_DM_POLICY=allowlist
+      - TELEGRAM_ALLOW_FROM=["tg:6779511356"]
     depends_on:
       litellm:
+        condition: service_healthy
+      searxng:
         condition: service_healthy
     networks:
       - backend-net

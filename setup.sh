@@ -18,7 +18,7 @@ echo "==============================================================="
 # ==================================================================
 echo "📁 Structuring directory spaces..."
 mkdir -p data/{postgres,redis,qdrant,openwebui,litellm,ollama,agent-zero,openclaw,n8n,mcp,caddy/data,caddy/config}
-mkdir -p configs/{litellm,searxng,n8n,mcp,agent-zero,caddy}
+mkdir -p configs/{litellm,searxng,n8n,mcp,agent-zero,openclaw,caddy}
 mkdir -p documentation
 mkdir -p .github/workflows
 
@@ -287,16 +287,25 @@ services:
   openclaw:
     image: alpine/openclaw:latest
     container_name: ai-openclaw
-    restart: "no"
+    restart: always
+    ports:
+      - "${OPENCLAW_PORT}:18789"
     env_file:
       - ./.env
       - ./.secrets
     volumes:
-      - ./data/openclaw:/app/data
+      - ./data/openclaw:/home/node/.openclaw
+      - ./configs/openclaw/openclaw.json:/home/node/.openclaw/openclaw.json
+    command: ["node", "openclaw.mjs", "gateway", "--bind=lan", "--port=18789"]
     environment:
-      - OPENAI_BASE_URL=http://ai-litellm:4000/v1
+      - OPENCLAW_GATEWAY_TOKEN=${LITELLM_MASTER_KEY}
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - TELEGRAM_DM_POLICY=allowlist
+      - TELEGRAM_ALLOW_FROM=["tg:6779511356"]
     depends_on:
       litellm:
+        condition: service_healthy
+      searxng:
         condition: service_healthy
     networks:
       - backend-net
@@ -917,6 +926,99 @@ cat << 'MCP_EOF' > configs/mcp/mcp_config.json
 MCP_EOF
 
 # ==================================================================
+# PHASE 8.5: OpenClaw Gateway Configuration
+# ==================================================================
+echo "⚙️ Writing OpenClaw gateway configuration..."
+
+cat << 'OPENCLAW_EOF' > configs/openclaw/openclaw.json
+{
+  "gateway": {
+    "mode": "local"
+  },
+  "logging": {
+    "level": "debug",
+    "consoleLevel": "debug"
+  },
+  "models": {
+    "mode": "merge",
+    "providers": {
+      "litellm": {
+        "baseUrl": "http://ai-litellm:4000/v1",
+        "apiKey": "${LITELLM_MASTER_KEY}",
+        "api": "openai-completions",
+        "models": [
+          {
+            "id": "morpheus-core",
+            "name": "Morpheus Core",
+            "reasoning": true,
+            "input": ["text"],
+            "contextWindow": 1000000,
+            "contextTokens": 256000,
+            "maxTokens": 64000
+          },
+          {
+            "id": "morpheus-deep-thought",
+            "name": "Morpheus Deep Thought",
+            "reasoning": true,
+            "input": ["text"],
+            "contextWindow": 1000000,
+            "contextTokens": 256000,
+            "maxTokens": 64000
+          },
+          {
+            "id": "morpheus-flash",
+            "name": "Morpheus Flash",
+            "reasoning": false,
+            "input": ["text"],
+            "contextWindow": 1000000,
+            "contextTokens": 256000,
+            "maxTokens": 8192
+          },
+          {
+            "id": "morpheus-qwen",
+            "name": "Morpheus Qwen",
+            "reasoning": false,
+            "input": ["text"],
+            "contextWindow": 1000000,
+            "contextTokens": 256000,
+            "maxTokens": 8192
+          },
+          {
+            "id": "morpheus-free-fallback",
+            "name": "Morpheus Free Fallback",
+            "reasoning": false,
+            "input": ["text"],
+            "contextWindow": 128000,
+            "contextTokens": 96000,
+            "maxTokens": 8192
+          },
+          {
+            "id": "local-processor",
+            "name": "Local Processor",
+            "reasoning": true,
+            "input": ["text"],
+            "contextWindow": 32768,
+            "contextTokens": 32000,
+            "maxTokens": 4096
+          }
+        ]
+      }
+    }
+  },
+  "agents": {
+    "defaults": {
+      "model": "litellm/local-processor",
+      "compaction": {
+        "reserveTokensFloor": 6000,
+        "keepRecentTokens": 12000,
+        "model": "litellm/morpheus-flash"
+      }
+    }
+  }
+}
+OPENCLAW_EOF
+
+# ==================================================================
 # PHASE 9: Agent & n8n Config Placeholders
 # ==================================================================
 echo "📄 Writing agent configuration placeholders..."
@@ -1052,7 +1154,7 @@ jobs:
         script: |
           TARGET_DIR="/home/${{ secrets.SERVER_USER }}/ai-stack"
           mkdir -p $TARGET_DIR && cd $TARGET_DIR
-          mkdir -p configs/{litellm,searxng,n8n,mcp,agent-zero} data/{postgres,redis,qdrant,openwebui,litellm,ollama,agent-zero,openclaw,n8n,mcp} documentation
+          mkdir -p configs/{litellm,searxng,n8n,mcp,agent-zero,openclaw} data/{postgres,redis,qdrant,openwebui,litellm,ollama,agent-zero,openclaw,n8n,mcp} documentation
           cat << 'INNER' > .env
           OPENWEBUI_PORT=${{ secrets.OPENWEBUI_PORT }}
           LITELLM_PORT=${{ secrets.LITELLM_PORT }}

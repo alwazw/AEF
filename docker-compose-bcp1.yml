@@ -264,16 +264,25 @@ services:
   openclaw:
     image: alpine/openclaw:latest
     container_name: ai-openclaw
-    restart: "no"
+    restart: always
+    ports:
+      - "${OPENCLAW_PORT}:18789"
     env_file:
       - ./.env
       - ./.secrets
     volumes:
-      - ./data/openclaw:/app/data
+      - ./data/openclaw:/home/node/.openclaw
+      - ./configs/openclaw/openclaw.json:/home/node/.openclaw/openclaw.json
+    command: ["node", "openclaw.mjs", "gateway", "--bind=lan", "--port=18789"]
     environment:
-      - OPENAI_BASE_URL=http://ai-litellm:4000/v1
+      - OPENCLAW_GATEWAY_TOKEN=${LITELLM_MASTER_KEY}
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - TELEGRAM_DM_POLICY=allowlist
+      - TELEGRAM_ALLOW_FROM=["tg:6779511356"]
     depends_on:
       litellm:
+        condition: service_healthy
+      searxng:
         condition: service_healthy
     networks:
       - backend-net

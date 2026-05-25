@@ -9,7 +9,7 @@ use_default_settings: true
 general:
   instance_name: "AI-Stack SearXNG"
   enable_metrics: false
-  debug: false
+  debug: true
 
 search:
   safe_search: 0
@@ -42,208 +42,208 @@ ui:
 # Disable engines that are heavy, unreliable, or unnecessary for agents
 engines:
   - name: google
-    disabled: true
+    disabled: false
   - name: bing
-    disabled: true
+    disabled: false
   - name: bing images
-    disabled: true
+    disabled: false
   - name: bing news
-    disabled: true
+    disabled: false
   - name: bing videos
-    disabled: true
+    disabled: false
   - name: yahoo
-    disabled: true
+    disabled: false
   - name: brave
-    disabled: true
+    disabled: false
   - name: startpage
-    disabled: true
+    disabled: false
   - name: qwant
-    disabled: true
+    disabled: false
   - name: yandex
-    disabled: true
+    disabled: false
   - name: baidu
-    disabled: true
+    disabled: false
   - name: duckduckgo videos
-    disabled: true
+    disabled: false
   - name: duckduckgo maps
-    disabled: true
+    disabled: false
   - name: apple maps
-    disabled: true
+    disabled: false
   - name: youtube
-    disabled: true
+    disabled: false
   - name: dailymotion
-    disabled: true
+    disabled: false
   - name: vimeo
-    disabled: true
+    disabled: false
   - name: instagram
-    disabled: true
+    disabled: false
   - name: pinterest
-    disabled: true
+    disabled: false
   - name: reddit
-    disabled: true
+    disabled: false
   - name: twitter
-    disabled: true
+    disabled: false
   - name: spotify
-    disabled: true
+    disabled: false
   - name: soundcloud
-    disabled: true
+    disabled: false
   - name: deezer
-    disabled: true
+    disabled: false
   - name: itunes
-    disabled: true
+    disabled: false
   - name: google videos
-    disabled: true
+    disabled: false
   - name: google news
-    disabled: true
+    disabled: false
   - name: google images
-    disabled: true
+    disabled: false
   - name: google shopping
-    disabled: true
+    disabled: false
   - name: flickr
-    disabled: true
+    disabled: false
   - name: deviantart
-    disabled: true
+    disabled: false
   - name: unsplash
-    disabled: true
+    disabled: false
   - name: pixabay
-    disabled: true
+    disabled: false
   - name: peertube
-    disabled: true
+    disabled: false
   - name: invidious
-    disabled: true
+    disabled: false
   - name: ebay
-    disabled: true
+    disabled: false
   - name: amazon
-    disabled: true
+    disabled: false
   - name: piratebay
-    disabled: true
+    disabled: false
   - name: 1337x
-    disabled: true
+    disabled: false
   - name: solidtorrents
-    disabled: true
+    disabled: false
   - name: libgen
-    disabled: true
+    disabled: false
   - name: annas archive
-    disabled: true
+    disabled: false
   - name: arxiv
-    disabled: true
+    disabled: false
   - name: pubmed
-    disabled: true
+    disabled: false
   - name: crossref
-    disabled: true
+    disabled: false
   - name: semantic scholar
-    disabled: true
+    disabled: false
   - name: base
-    disabled: true
+    disabled: false
   - name: fdroid
-    disabled: true
+    disabled: false
   - name: playstore
-    disabled: true
+    disabled: false
   - name: ahmia
-    disabled: true
+    disabled: false
   - name: onionland
-    disabled: true
+    disabled: false
   - name: wayback
-    disabled: true
+    disabled: false
   - name: internetarchive
-    disabled: true
+    disabled: false
   - name: mwmbl
-    disabled: true
+    disabled: false
   - name: sepiasearch
-    disabled: true
+    disabled: false
   - name: lobste.rs
-    disabled: true
+    disabled: false
   - name: hackernews
-    disabled: true
+    disabled: false
   - name: searchcode code
-    disabled: true
+    disabled: false
   - name: sourcehut
-    disabled: true
+    disabled: false
   - name: gitlab
-    disabled: true
+    disabled: false
   - name: bitbucket
-    disabled: true
+    disabled: false
   - name: crates.io
-    disabled: true
+    disabled: false
   - name: rubygems
-    disabled: true
+    disabled: false
   - name: gentoo
-    disabled: true
+    disabled: false
   - name: voidlinux
-    disabled: true
+    disabled: false
   - name: wikivoyage
-    disabled: true
+    disabled: false
   - name: wikibooks
-    disabled: true
+    disabled: false
   - name: wikinews
-    disabled: true
+    disabled: false
   - name: wikiquote
-    disabled: true
+    disabled: false
   - name: wikisource
-    disabled: true
+    disabled: false
   - name: wikiversity
-    disabled: true
+    disabled: false
   - name: wiktionary
-    disabled: true
+    disabled: false
   - name: wikispecies
-    disabled: true
+    disabled: false
   - name: wikimedia commons
-    disabled: true
+    disabled: false
   - name: lemmy communities
-    disabled: true
+    disabled: false
   - name: lemmy users
-    disabled: true
+    disabled: false
   - name: lemmy posts
-    disabled: true
+    disabled: false
   - name: lemmy comments
-    disabled: true
+    disabled: false
   - name: mastodon users
-    disabled: true
+    disabled: false
   - name: excite
-    disabled: true
+    disabled: false
   - name: mojeek
-    disabled: true
+    disabled: false
   - name: etools
-    disabled: true
+    disabled: false
   - name: dogpile
-    disabled: true
+    disabled: false
   - name: ask
-    disabled: true
+    disabled: false
   - name: wiby
-    disabled: true
+    disabled: false
   - name: whowas
-    disabled: true
+    disabled: false
   - name: 9gag
-    disabled: true
+    disabled: false
   - name: bilibili
-    disabled: true
+    disabled: false
   - name: kbin communities
-    disabled: true
+    disabled: false
   - name: kbin users
-    disabled: true
+    disabled: false
   - name: kbin posts
-    disabled: true
+    disabled: false
   - name: kbin comments
-    disabled: true
+    disabled: false
   - name: bandcamp
-    disabled: true
+    disabled: false
   - name: imdb
-    disabled: true
+    disabled: false
   - name: rottentomatoes
-    disabled: true
+    disabled: false
   - name: mixcloud
-    disabled: true
+    disabled: false
   - name: radio browser
-    disabled: true
+    disabled: false
   - name: openverse
-    disabled: true
+    disabled: false
   - name: svgrepo
-    disabled: true
+    disabled: false
   - name: codeberg
-    disabled: true
+    disabled: false
   - name: pkg.go.dev
-    disabled: true
+    disabled: false
   - name: metacpan
-    disabled: true
+    disabled: false
   - name: hoogle
-    disabled: true
+    disabled: false
